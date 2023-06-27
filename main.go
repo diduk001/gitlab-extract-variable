@@ -14,7 +14,7 @@ import (
 
 func printExample() {
 	fmt.Println("Examples:")
-	fmt.Println("gitlab-extract-variable -token=TOKEN -project=ProjectOwner/ProjectName -output=output.txt")
+	fmt.Println("gitlab-extract-variable -token=TOKEN -project=ProjectOwner/ProjectName -output=output.csv")
 	fmt.Println("gitlab-extract-variable -token=TOKEN -project=ProjectOwner/ProjectName -compact")
 }
 
