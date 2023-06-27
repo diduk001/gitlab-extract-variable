@@ -1,0 +1,2 @@
+# gitlab-extract-variable
+
