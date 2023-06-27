@@ -51,7 +51,12 @@ func getApiResponse(token string, projectName string) ApiResponse {
 		panic(resp.Body)
 	}
 
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		if err := Body.Close(); err != nil {
+			panic(err)
+		}
+	}(resp.Body)
+
 	respBody, err := io.ReadAll(resp.Body)
 
 	if err != nil {
@@ -69,7 +74,11 @@ func getApiResponse(token string, projectName string) ApiResponse {
 
 func writeCSV(response ApiResponse, filename string, compactFlag bool) {
 	file, err := os.Create(filename)
-	defer file.Close()
+	defer func(file *os.File) {
+		if err := file.Close(); err != nil {
+			panic(err)
+		}
+	}(file)
 
 	if err != nil {
 		fmt.Println("Error while creating output file")
