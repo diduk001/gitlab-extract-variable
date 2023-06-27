@@ -14,7 +14,7 @@ import (
 
 func printExample() {
 	fmt.Println("Examples:")
-	fmt.Println("gitlab-extract-variable -token=TOKEN -project=ProjectOwner/ProjectName -output=output.csv")
+	fmt.Println("gitlab-extract-variable -token=TOKEN -project=ProjectOwner/ProjectName -output=.env -format=env")
 	fmt.Println("gitlab-extract-variable -token=TOKEN -project=ProjectOwner/ProjectName -compact")
 }
 
@@ -97,7 +97,7 @@ func writeCSV(response ApiResponse, filename string, compactFlag bool) {
 
 	err = writer.Write(header)
 	if err != nil {
-		fmt.Println("Error while writing csv header")
+		fmt.Printf("Error while writing csv header %s\n", filename)
 		panic(err)
 	}
 	for i, variable := range response {
@@ -118,10 +118,57 @@ func writeCSV(response ApiResponse, filename string, compactFlag bool) {
 	writer.Flush()
 }
 
+func writeEnv(response ApiResponse, filename string, compactFlag bool) {
+	file, err := os.Create(filename)
+	defer func(file *os.File) {
+		if err := file.Close(); err != nil {
+			panic(err)
+		}
+	}(file)
+
+	if err != nil {
+		fmt.Printf("Error while creating output file %s\n", filename)
+		panic(err)
+	}
+
+	var header string
+	if compactFlag {
+		header = "key=value"
+	} else {
+		header = "# key=value\t# variable-type protected masked raw environment-scope\n"
+	}
+	_, err = file.WriteString(header)
+	if err != nil {
+		fmt.Println("Error while writing header!")
+		panic(err)
+	}
+	for i, variable := range response {
+		var line string
+
+		if compactFlag {
+			line = fmt.Sprintf("%s=%s\n", variable.Key, variable.Value)
+		} else {
+			line = fmt.Sprintf("%s=%s\t# %s %s %s %s %s\n", variable.Key, variable.Value, variable.VariableType,
+				strconv.FormatBool(variable.Protected), strconv.FormatBool(variable.Masked),
+				strconv.FormatBool(variable.Raw), variable.EnvironmentScope)
+		}
+
+		_, err = file.WriteString(line)
+		if err != nil {
+			fmt.Printf("Error while writing %d-th line!\n", i)
+			panic(err)
+		}
+	}
+	if err = file.Sync(); err != nil {
+		panic(err)
+	}
+}
+
 func main() {
 	privateTokenPtr := flag.String("token", "", "GitLab user's private token")
-	projectNamePtr := flag.String("project", "", "GitLab project name")
-	outputFilePtr := flag.String("output", "output.csv", "Output file")
+	projectNamePtr := flag.String("project", "", "GitLab project name ({ProjectOwner}/{ProjectName})")
+	outputFilePtr := flag.String("output", "output.txt", "Output file")
+	formatPtr := flag.String("format", "csv", "Format (csv or env)")
 	compactPtr := flag.Bool("compact", false, "Compact output (only key and value)")
 
 	flag.Parse()
@@ -138,5 +185,15 @@ func main() {
 	}
 
 	response := getApiResponse(*privateTokenPtr, *projectNamePtr)
-	writeCSV(response, *outputFilePtr, *compactPtr)
+
+	switch *formatPtr {
+	case "csv":
+		writeCSV(response, *outputFilePtr, *compactPtr)
+	case "env":
+		writeEnv(response, *outputFilePtr, *compactPtr)
+	default:
+		fmt.Println("Format specified badly!")
+		printExample()
+		return
+	}
 }
